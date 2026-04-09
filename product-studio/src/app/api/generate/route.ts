@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
   const formData = await req.formData()
   const file = formData.get('image') as File | null
   const mode = (formData.get('mode') as string) || 'all'
+  const provider = (formData.get('provider') as string) || 'liblib'
 
   if (!file) {
     return new Response(JSON.stringify({ error: '请上传图片' }), {
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     start(controller) {
-      const proc = spawn('python3', [SCRIPT, filepath, '-m', mode], {
+      const proc = spawn('python3', [SCRIPT, filepath, '-m', mode, '-p', provider], {
         cwd: process.env.WORKSPACE || '/root/.openclaw/workspace',
       })
 

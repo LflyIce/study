@@ -1,6 +1,19 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
+import {
+  Upload, Button, Card, Typography, Tag, Space, Spin,
+  Steps, Result, Descriptions, Tooltip, ConfigProvider, theme, Badge, Divider, message
+} from 'antd'
+import {
+  UploadOutlined, RocketOutlined, FileImageOutlined,
+  ScissorOutlined, PictureOutlined, DownloadOutlined,
+  ThunderboltOutlined, InfoCircleOutlined, CheckCircleOutlined,
+  LoadingOutlined, ExperimentOutlined, ApartmentOutlined, ExclamationCircleOutlined, CopyOutlined
+} from '@ant-design/icons'
+
+const { Title, Text, Paragraph } = Typography
+const { Dragger } = Upload
 
 interface TaskResult {
   analysis?: string
@@ -8,45 +21,81 @@ interface TaskResult {
   final?: string
 }
 
+const STEPS = [
+  { title: '产品分析', icon: <InfoCircleOutlined />, desc: 'AI识别产品信息' },
+  { title: '智能抠图', icon: <ScissorOutlined />, desc: 'BiRefNet白底抠图' },
+  { title: '场景生成', icon: <ThunderboltOutlined />, desc: '场景描述提示词' },
+  { title: '背景精修', icon: <PictureOutlined />, desc: '商品展示图生成' },
+]
+
 export default function Home() {
   const [uploading, setUploading] = useState(false)
   const [logs, setLogs] = useState<string[]>([])
   const [result, setResult] = useState<TaskResult>({})
   const [preview, setPreview] = useState<string | null>(null)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [currentStep, setCurrentStep] = useState(-1)
+  const [errorStep, setErrorStep] = useState(-1)
+  const [file, setFile] = useState<File | null>(null)
+  const [provider, setProvider] = useState<string>('liblib')
   const logEndRef = useRef<HTMLDivElement>(null)
+  const [messageApi, contextHolder] = message.useMessage()
+
+  const setLocalFile = useCallback((f: File) => {
+    setFile(f)
+    setPreview(URL.createObjectURL(f))
+    setResult({})
+    setLogs([])
+    setSelectedImage(null)
+    setCurrentStep(-1)
+  }, [])
+
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items
+      if (!items) return
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault()
+          const f = item.getAsFile()
+          if (f) setLocalFile(f)
+          break
+        }
+      }
+    }
+    document.addEventListener('paste', onPaste)
+    return () => document.removeEventListener('paste', onPaste)
+  }, [setLocalFile])
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setPreview(URL.createObjectURL(file))
-      setResult({})
-      setLogs([])
-    }
+    const f = e.target.files?.[0]
+    if (f) setLocalFile(f)
   }
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    const file = e.dataTransfer.files?.[0]
-    if (file && file.type.startsWith('image/')) {
-      setPreview(URL.createObjectURL(file))
-      setResult({})
-      setLogs([])
+  const updateStep = useCallback((logText: string) => {
+    if (logText.includes('分析产品')) setCurrentStep(0)
+    else if (logText.includes('抠图') || logText.includes('matting')) setCurrentStep(1)
+    else if (logText.includes('场景描述') || logText.includes('prompt')) setCurrentStep(2)
+    else if (logText.includes('背景') || logText.includes('final') || logText.includes('精修')) setCurrentStep(3)
+    if (logText.includes('失败') || logText.includes('错误') || logText.includes('Error') || logText.includes('⚠️')) {
+      setErrorStep(currentStep)
     }
-  }
+  }, [currentStep])
 
   const handleSubmit = useCallback(async () => {
-    const file = fileRef.current?.files?.[0]
     if (!file) return
 
     setUploading(true)
     setLogs([])
     setResult({})
+    setSelectedImage(null)
+    setCurrentStep(0)
+    setErrorStep(-1)
 
     const formData = new FormData()
     formData.append('image', file)
     formData.append('mode', 'all')
+    formData.append('provider', provider)
 
     try {
       const res = await fetch('/api/generate', { method: 'POST', body: formData })
@@ -70,200 +119,320 @@ export default function Home() {
             const data = JSON.parse(line.slice(6))
             if (data.type === 'log') {
               setLogs(prev => [...prev, data.text])
+              updateStep(data.text)
             } else if (data.type === 'error') {
               setLogs(prev => [...prev, `❌ ${data.text}`])
+              messageApi.error('处理失败')
             } else if (data.type === 'done') {
               if (data.files) {
                 setResult(data.files)
+                if (data.files.final) setSelectedImage(data.files.final)
               }
-              if (data.code !== 0) {
-                setLogs(prev => [...prev, `⚠️ 进程退出码: ${data.code}`])
+              if (data.code === 0) {
+                setCurrentStep(3)
+                messageApi.success('生成完成！')
               }
             }
           } catch {}
         }
       }
     } catch (e: any) {
-      setLogs(prev => [...prev, `❌ 请求失败: ${e.message}`])
+      messageApi.error(`请求失败: ${e.message}`)
     } finally {
       setUploading(false)
     }
-  }, [])
+  }, [file, updateStep, messageApi])
 
-  const imageButtons = [
-    { key: 'matting' as const, label: '抠图结果', emoji: '✂️' },
-    { key: 'final' as const, label: '精修成品', emoji: '🎨' },
-  ]
+  const resultImages = [
+    { key: 'matting' as const, label: '抠图结果', emoji: '✂️', icon: <ScissorOutlined /> },
+    { key: 'final' as const, label: '精修成品', emoji: '🎨', icon: <PictureOutlined /> },
+  ].filter(item => result[item.key])
+
+  const logColor = (text: string) => {
+    if (text.includes('✅')) return '#52c41a'
+    if (text.includes('⚠️') || text.includes('❌')) return '#ff4d4f'
+    if (text.includes('⏳') || text.includes('🎨')) return '#faad14'
+    return '#d9d9d9'
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
-          <span className="text-3xl">🌙</span>
-          <div>
-            <h1 className="text-xl font-bold text-gray-800">产品图工作台</h1>
-            <p className="text-sm text-gray-500">AI 智能分析 · 自动抠图 · 场景精修</p>
+    <ConfigProvider theme={{
+      algorithm: theme.darkAlgorithm,
+      token: { colorPrimary: '#6366f1', borderRadius: 12 }
+    }}>
+      {contextHolder}
+      <div style={{ minHeight: '100vh', background: '#0f0f0f' }}>
+        {/* Header */}
+        <div style={{
+          background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+          borderBottom: '1px solid #303050',
+          padding: '20px 0'
+        }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{
+              width: 48, height: 48, borderRadius: 16,
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 24
+            }}>🌙</div>
+            <div>
+              <Title level={4} style={{ color: '#fff', margin: 0 }}>产品图工作台</Title>
+              <Text type="secondary">AI 智能分析 · 自动抠图 · 场景精修</Text>
+            </div>
           </div>
         </div>
-      </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 左侧：上传 */}
-          <div className="space-y-4">
-            {/* 上传区域 */}
-            <div className="bg-white rounded-2xl shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-700 mb-4">📤 上传产品图</h2>
-              <div
-                onDragOver={e => e.preventDefault()}
-                onDrop={handleDrop}
-                onClick={() => fileRef.current?.click()}
-                className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-all"
+        <main style={{ maxWidth: 1200, margin: '0 auto', padding: '24px' }}>
+          {/* Steps */}
+          <Card
+            style={{ marginBottom: 24, borderRadius: 16, background: '#1a1a2e', border: '1px solid #303050' }}
+            bodyStyle={{ padding: '20px 24px' }}
+          >
+            <Steps
+              current={uploading ? currentStep : (result.final ? 3 : -1)}
+              items={STEPS.map((s, idx) => {
+                let icon = s.icon
+                if (result.final && idx < 3) {
+                  icon = <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                } else if (errorStep === idx) {
+                  icon = <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
+                } else if (uploading && currentStep === idx) {
+                  icon = <LoadingOutlined />
+                }
+                let titleStyle: React.CSSProperties = {}
+                if (result.final && idx < 3) titleStyle.color = '#52c41a'
+                else if (errorStep === idx) titleStyle.color = '#ff4d4f'
+                return { title: <span style={titleStyle}>{s.title}</span>, description: s.desc, icon }
+              })}
+            />
+          </Card>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+            {/* 左侧：上传 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+              {/* 上传区域 */}
+              <Card
+                style={{ borderRadius: 16, background: '#1a1a2e', border: '1px solid #303050' }}
+                title={<Space><UploadOutlined />上传产品图</Space>}
               >
-                {preview ? (
-                  <img src={preview} alt="preview" className="max-h-64 mx-auto rounded-lg shadow" />
-                ) : (
-                  <div className="space-y-2">
-                    <div className="text-4xl">📷</div>
-                    <p className="text-gray-500">拖拽图片到这里，或点击选择</p>
-                    <p className="text-sm text-gray-400">支持 JPG / PNG / WEBP</p>
-                  </div>
-                )}
-                <input
-                  ref={fileRef}
-                  type="file"
+                <Dragger
+                  name="file"
+                  multiple={false}
+                  showUploadList={false}
                   accept="image/*"
-                  onChange={handleFile}
-                  className="hidden"
-                />
-              </div>
-              <button
-                onClick={handleSubmit}
-                disabled={uploading || !preview}
-                className="mt-4 w-full py-3 px-6 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-              >
-                {uploading ? (
-                  <>
-                    <span className="animate-spin">⚙️</span> 处理中...
-                  </>
-                ) : (
-                  <>🚀 开始生成</>
-                )}
-              </button>
-            </div>
+                  beforeUpload={(f) => { setLocalFile(f); return false }}
+                  style={{
+                    background: preview ? 'transparent' : '#14142a',
+                    borderColor: '#404070',
+                    borderRadius: 12,
+                    padding: preview ? 0 : '40px 20px'
+                  }}
+                >
+                  {preview ? (
+                    <img src={preview} alt="preview" style={{ maxHeight: 280, borderRadius: 8 }} />
+                  ) : (
+                    <div style={{ textAlign: 'center' }}>
+                      <FileImageOutlined style={{ fontSize: 48, color: '#6366f1', marginBottom: 12 }} />
+                      <Paragraph style={{ color: '#d9d9d9', marginBottom: 4 }}>
+                        拖拽、点击或 Ctrl+V 粘贴图片
+                      </Paragraph>
+                      <Text type="secondary">支持 JPG / PNG / WEBP</Text>
+                    </div>
+                  )}
+                </Dragger>
 
-            {/* 日志 */}
-            {logs.length > 0 && (
-              <div className="bg-gray-900 rounded-2xl shadow-sm p-4 max-h-80 overflow-y-auto">
-                <h3 className="text-sm font-medium text-gray-400 mb-2">📋 运行日志</h3>
-                <div className="space-y-1 font-mono text-sm">
-                  {logs.map((log, i) => (
-                    <p key={i} className={`${
-                      log.includes('✅') ? 'text-green-400' :
-                      log.includes('⚠️') || log.includes('❌') ? 'text-red-400' :
-                      log.includes('⏳') || log.includes('🎨') ? 'text-yellow-400' :
-                      'text-gray-300'
-                    }`}>
-                      {log}
-                    </p>
-                  ))}
-                </div>
-                <div ref={logEndRef} />
-              </div>
-            )}
-          </div>
-
-          {/* 右侧：结果 */}
-          <div className="space-y-4">
-            {/* 分析结果 */}
-            {result.analysis && <AnalysisCard file={result.analysis} />}
-
-            {/* 结果图片 */}
-            <div className="bg-white rounded-2xl shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-700 mb-4">🖼️ 生成结果</h2>
-              <div className="flex gap-2 mb-4 flex-wrap">
-                {imageButtons.map(btn => (
-                  result[btn.key] && (
-                    <button
-                      key={btn.key}
-                      onClick={() => setSelectedImage(result[btn.key]!)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        selectedImage === result[btn.key]
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      {btn.emoji} {btn.label}
-                    </button>
-                  )
-                ))}
-              </div>
-
-              {selectedImage ? (
-                <div className="relative">
-                  <img
-                    src={`/api/image?file=${encodeURIComponent(selectedImage)}`}
-                    alt="result"
-                    className="max-h-[500px] mx-auto rounded-lg shadow-md"
-                  />
-                  <a
-                    href={`/api/image?file=${encodeURIComponent(selectedImage)}`}
-                    download
-                    className="absolute top-2 right-2 bg-white/80 backdrop-blur rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white transition-all shadow"
+                <Space style={{ marginTop: 16, width: '100%', justifyContent: 'center' }}>
+                  <Tag.CheckableTag
+                    checked={provider === 'liblib'}
+                    onChange={() => setProvider('liblib')}
+                    style={{ padding: '4px 12px', borderRadius: 8, fontSize: 13 }}
                   >
-                    💾 下载
-                  </a>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-gray-400">
-                  <div className="text-4xl mb-2">🖼️</div>
-                  <p>上传图片并生成后，结果会显示在这里</p>
-                </div>
+                    🎨 LibLib（高质量）
+                  </Tag.CheckableTag>
+                  <Tag.CheckableTag
+                    checked={provider === 'free'}
+                    onChange={() => setProvider('free')}
+                    style={{ padding: '4px 12px', borderRadius: 8, fontSize: 13 }}
+                  >
+                    🆓 免费（remove.bg + CogView）
+                  </Tag.CheckableTag>
+                  <Tag.CheckableTag
+                    checked={provider === 'replicate'}
+                    onChange={() => setProvider('replicate')}
+                    style={{ padding: '4px 12px', borderRadius: 8, fontSize: 13 }}
+                  >
+                    ⭐ Replicate（$0.04/张）
+                  </Tag.CheckableTag>
+                </Space>
+
+                <Button
+                  type="primary"
+                  icon={uploading ? <LoadingOutlined /> : <RocketOutlined />}
+                  onClick={handleSubmit}
+                  disabled={uploading || !preview}
+                  loading={uploading}
+                  block
+                  size="large"
+                  style={{ marginTop: 16, height: 48, fontSize: 16, borderRadius: 12 }}
+                >
+                  {uploading ? '处理中...' : '🚀 开始生成'}
+                </Button>
+              </Card>
+
+              {/* 日志 */}
+              {logs.length > 0 && (
+                <Card
+                  title={<Space><ExperimentOutlined />运行日志</Space>}
+                  style={{ borderRadius: 16, background: '#1a1a2e', border: '1px solid #303050' }}
+                  bodyStyle={{ padding: '12px 16px', maxHeight: 300, overflowY: 'auto' }}
+                >
+                  <div style={{ fontFamily: 'monospace', fontSize: 13 }}>
+                    {logs.map((log, i) => (
+                      <div key={i} style={{ color: logColor(log), marginBottom: 4, lineHeight: 1.6 }}>
+                        {log}
+                      </div>
+                    ))}
+                    <div ref={logEndRef} />
+                  </div>
+                </Card>
               )}
             </div>
+
+            {/* 右侧：结果 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+              {/* 结果图片（优先显示） */}
+              <Card
+                title={<Space><PictureOutlined />生成结果</Space>}
+                style={{ borderRadius: 16, background: '#1a1a2e', border: '1px solid #303050' }}
+              >
+                {selectedImage ? (
+                  <div style={{ position: 'relative', textAlign: 'center' }}>
+                    <img
+                      src={`/api/image?file=${encodeURIComponent(selectedImage)}`}
+                      alt="result"
+                      style={{ maxWidth: '100%', maxHeight: 400, borderRadius: 12, border: '2px solid #303050' }}
+                    />
+                    <Tooltip title="下载图片">
+                      <Button
+                        type="primary"
+                        shape="circle"
+                        size="large"
+                        icon={<DownloadOutlined />}
+                        href={`/api/image?file=${encodeURIComponent(selectedImage)}`}
+                        download
+                        style={{ position: 'absolute', top: 12, right: 12 }}
+                      />
+                    </Tooltip>
+                    <div style={{ marginTop: 12 }}>
+                      <Space wrap>
+                        {resultImages.map(btn => (
+                          <Button
+                            key={btn.key}
+                            onClick={() => setSelectedImage(result[btn.key]!)}
+                            type={selectedImage === result[btn.key] ? 'primary' : 'default'}
+                            icon={btn.icon}
+                            size="middle"
+                            style={{ borderRadius: 8 }}
+                          >
+                            {btn.emoji} {btn.label}
+                          </Button>
+                        ))}
+                      </Space>
+                    </div>
+                  </div>
+                ) : resultImages.length > 0 ? (
+                  <Space wrap>
+                    {resultImages.map(btn => (
+                      <Button
+                        key={btn.key}
+                        onClick={() => setSelectedImage(result[btn.key]!)}
+                        icon={btn.icon}
+                        style={{ borderRadius: 8 }}
+                      >
+                        {btn.emoji} {btn.label}
+                      </Button>
+                    ))}
+                  </Space>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '60px 0' }}>
+                    <PictureOutlined style={{ fontSize: 64, color: '#303050', marginBottom: 16 }} />
+                    <Title level={5} type="secondary" style={{ color: '#606080' }}>等待生成</Title>
+                    <Text type="secondary">上传图片并点击生成后，结果将在此显示</Text>
+                  </div>
+                )}
+              </Card>
+
+              {/* 分析结果 */}
+              {result.analysis && <AnalysisCard file={result.analysis} />}
+            </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </ConfigProvider>
   )
 }
 
 function AnalysisCard({ file }: { file: string }) {
   const [data, setData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
   useState(() => {
     fetch(`/api/image?file=${encodeURIComponent(file)}`)
       .then(r => r.json())
-      .then(setData)
+      .then(d => { setData(d); setLoading(false) })
+      .catch(() => setLoading(false))
   })
 
-  if (!data) return <div className="bg-white rounded-2xl shadow-sm border p-6"><p className="text-gray-400">加载分析结果...</p></div>
+  if (loading || !data) {
+    return (
+      <Card
+        title={<Space><InfoCircleOutlined />产品分析</Space>}
+        style={{ borderRadius: 16, background: '#1a1a2e', border: '1px solid #303050' }}
+      >
+        <div style={{ textAlign: 'center', padding: 20 }}><Spin /></div>
+      </Card>
+    )
+  }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border p-6">
-      <h2 className="text-lg font-semibold text-gray-700 mb-3">📊 产品分析</h2>
-      <div className="space-y-2 text-sm">
-        <p><span className="text-gray-500">产品：</span><span className="font-medium">{data.product_name}</span></p>
-        <p><span className="text-gray-500">类目：</span>{data.category}</p>
-        <p><span className="text-gray-500">描述：</span>{data.description}</p>
-        <div>
-          <span className="text-gray-500">关键词：</span>
-          <div className="flex flex-wrap gap-1 mt-1">
+    <Card
+      title={<Space><InfoCircleOutlined />产品分析</Space>}
+      style={{ borderRadius: 16, background: '#1a1a2e', border: '1px solid #303050' }}
+    >
+      <Descriptions column={1} size="small" bordered labelStyle={{ color: '#8b8bc7', background: '#14142a', width: 80 }}>
+        <Descriptions.Item label="产品">{data.product_name}</Descriptions.Item>
+        <Descriptions.Item label="类目">{data.category}</Descriptions.Item>
+        <Descriptions.Item label="描述">{data.description}</Descriptions.Item>
+        <Descriptions.Item label="关键词">
+          <Space wrap size={[4, 4]}>
             {data.keywords?.map((k: string, i: number) => (
-              <span key={i} className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">{k}</span>
+              <Tag key={i} color="purple">{k}</Tag>
             ))}
+          </Space>
+        </Descriptions.Item>
+      </Descriptions>
+
+      <Divider style={{ borderColor: '#303050', margin: '16px 0 12px' }}>推荐标题</Divider>
+      {['zh', 'en', 'ja'].map(lang => {
+        const title = typeof data.titles === 'object' ? data.titles[lang] : data.titles
+        if (!title) return null
+        const label = { zh: '🇨🇳 中文', en: '🇬🇧 English', ja: '🇯🇵 日本語' }[lang]
+        return (
+          <div key={lang} style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <Text style={{ color: '#8b8bc7', fontWeight: 500 }}>{label}</Text>
+              <Button
+                type="text"
+                size="small"
+                icon={<CopyOutlined />}
+                onClick={() => { navigator.clipboard.writeText(title); message.success('已复制') }}
+                style={{ color: '#6366f1' }}
+              />
+            </div>
+            <Text style={{ color: '#b0b0d0', lineHeight: 1.8, fontSize: 13 }}>{title}</Text>
           </div>
-        </div>
-        <div>
-          <span className="text-gray-500">推荐标题：</span>
-          <ol className="list-decimal list-inside mt-1 space-y-0.5">
-            {data.titles?.map((t: string, i: number) => (
-              <li key={i} className="text-gray-600">{t}</li>
-            ))}
-          </ol>
-        </div>
-      </div>
-    </div>
+        )
+      })}
+    </Card>
   )
 }
