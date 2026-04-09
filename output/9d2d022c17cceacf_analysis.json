@@ -1,0 +1,19 @@
+{
+  "product_name": "前进帽",
+  "category": "帽子",
+  "features": [
+    "舒适",
+    "时尚"
+  ],
+  "keywords": [
+    "软舒适",
+    "温暖"
+  ],
+  "description": "这款灰色带有白色小花的平顶帽，以其柔软舒适的材质和时尚的设计，成为您日常穿搭的理想选择。",
+  "titles": {
+    "zh": "舒适时尚前进帽 现货充足快速发货",
+    "en": "Comfortable and Stylish Newsboy Cap In Stock Fast Shipping",
+    "ja": "快適でファッションな前進帽 在庫あり 即発送"
+  },
+  "image_prompt": "A gray newsboy cap with small white flowers on a soft fabric, placed on top of books with a white curtain background."
+}

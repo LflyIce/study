@@ -1,0 +1,22 @@
+{
+  "product_name": "前进帽",
+  "category": "帽子",
+  "features": [
+    "舒适",
+    "时尚",
+    "温暖"
+  ],
+  "keywords": [
+    "前进帽",
+    "时尚",
+    "舒适",
+    "温暖"
+  ],
+  "description": "这款前进帽采用柔软舒适的棉布面料，带有小花朵图案设计，适合各种场合佩戴。",
+  "titles": {
+    "zh": "前进帽 舒适时尚温暖 现货充足快速发货",
+    "en": "Forward Cap Soft Comfortable Fashion Warm In Stock Fast Shipping",
+    "ja": "フォワードキャップ ソフトコモフォブル ファッション ワーム 快送 在庫あり"
+  },
+  "image_prompt": "A stylish forward cap with a small flower pattern on a soft cotton fabric, placed on books with a white background."
+}

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "skills": {
+    "oc-security-hardener": {
+      "version": "1.0.0",
+      "installedAt": 1774715341577
+    },
+    "self-improving-agent-cn": {
+      "version": "1.0.0",
+      "installedAt": 1775015762158
+    },
+    "cn-web-search": {
+      "version": "2.2.0",
+      "installedAt": 1775022911917
+    },
+    "media-news-summary": {
+      "version": "1.0.0",
+      "installedAt": 1775025004076
+    },
+    "news-summary": {
+      "version": "1.0.1",
+      "installedAt": 1775095382093
+    },
+    "obsidian": {
+      "version": "1.0.0",
+      "installedAt": 1775117161738
+    },
+    "apple-notes": {
+      "version": "1.0.0",
+      "installedAt": 1775121841911
+    },
+    "apple-reminders": {
+      "version": "1.0.0",
+      "installedAt": 1775124121878
+    },
+    "ocr-local": {
+      "version": "1.0.0",
+      "installedAt": 1775127301813
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "product_name": "前进帽",
+  "category": "帽子",
+  "features": [
+    "舒适",
+    "时尚",
+    "温暖"
+  ],
+  "keywords": [
+    "前进帽",
+    "时尚",
+    "舒适"
+  ],
+  "description": "这款前进帽采用柔软舒适的布料制作，带有白色小花图案，适合各种场合佩戴。",
+  "titles": {
+    "zh": "时尚前进帽 舒适保暖 帽子男女潮款潮流休闲软壳鸭舌帽",
+    "en": "Fashion Newsboy Cap Soft Comfortable Warm Trendy Casual Flat Cap for Men and Women",
+    "ja": "ファッションニューズボーイカップ 軟らかく快適で暖かい ヘルメット メンズ レディース 流行する休暇フラットキャップ"
+  },
+  "image_prompt": "A stylish newsboy cap with a soft texture and white floral patterns, suitable for various occasions. The hat is placed on books with a white curtain background."
+}

@@ -1,0 +1,22 @@
+{
+  "product_name": "前进帽",
+  "category": "帽子",
+  "features": [
+    "舒适",
+    "时尚",
+    "保暖"
+  ],
+  "keywords": [
+    "前进帽",
+    "时尚",
+    "舒适",
+    "保暖"
+  ],
+  "description": "这款前进帽采用柔软舒适的棉布面料，带有小图案设计，适合日常佩戴和户外活动。",
+  "titles": {
+    "zh": "时尚前进帽 舒适保暖 棉质面料 小图案设计 男女通用",
+    "en": "Fashion Newsboy Cap Soft Comfortable Warm Cotton Fabric Small Pattern Design Unisex",
+    "ja": "ファッションニューズボーイハット 軟らかく快適で暖かいコットン素材 小さなパターンデザイン メンズ レディース共通"
+  },
+  "image_prompt": "A stylish newsboy cap with a soft and comfortable feel, featuring small pattern designs on warm cotton fabric. The hat is placed on a stack of books with a white curtain background."
+}

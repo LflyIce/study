@@ -1,0 +1,24 @@
+{
+  "product_name": "卡通手机壳",
+  "category": "电子产品配件",
+  "has_watermark": false,
+  "main_colors": [
+    "黑色",
+    "黄色"
+  ],
+  "material": "硅胶",
+  "style": "可爱卡通风格",
+  "key_features": [
+    "保护摄像头",
+    "防滑设计",
+    "耐刮擦"
+  ],
+  "scene_prompt_en": "A black phone case with a cute cartoon character design, featuring a NASA hat and jacket. The case is being held in hand against a white background.",
+  "studio_prompt_en": "Professional product photography of a black silicone phone case with a cute cartoon character wearing a NASA hat and jacket. High-quality studio lighting highlights the texture and details of the case.",
+  "highlight_prompt_en": "Close-up shot emphasizing the high-quality material and detailed design of the black silicone phone case with a cute cartoon character and NASA-themed elements.",
+  "temu_titles": [
+    "Protective Cartoon Phone Case with NASA Theme",
+    "Cute Character Silicone Phone Cover",
+    "NASA Inspired Mobile Back Cover"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "product_name": "卡通隐形眼镜盒",
+  "category": "美妆工具",
+  "features": [
+    "可爱卡通设计",
+    "便携式包装",
+    "防尘盖"
+  ],
+  "keywords": [
+    "隐形眼镜盒",
+    "卡通",
+    "便携"
+  ],
+  "description": "这款可爱的卡通隐形眼镜盒采用时尚的设计，适合存放和携带隐形眼镜。",
+  "titles": {
+    "zh": "可爱卡通隐形眼镜盒便携式包装防尘盖美妆工具",
+    "en": "Cute Cartoon Contact Lens Case Portable Packaging Dust Cover Makeup Tool",
+    "ja": "可愛いカードンコンタクトレンズケースポータブルパッケージダストカバーメイクツール"
+  },
+  "image_prompt": "A collection of cute cartoon contact lens cases in various colors like pink, purple, blue, and yellow, with a dust cover, displayed on a pink bookshelf against a checkered background."
+}
