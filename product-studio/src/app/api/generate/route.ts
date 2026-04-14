@@ -19,7 +19,17 @@ export async function POST(req: NextRequest) {
   const formData = await req.formData()
   const file = formData.get('image') as File | null
   const mode = (formData.get('mode') as string) || 'all'
-  const provider = (formData.get('provider') as string) || 'liblib'
+  const count = parseInt(formData.get('count') as string) || 2
+  const rawProvider = ((formData.get('provider') as string) || 'photoroom').toLowerCase()
+  // 映射中文提供商名到 Python 参数
+  const providerMap: Record<string, string> = {
+    'photoroom': 'photoroom',
+    'liblib': 'liblib',
+    '免费': 'free',
+    'free': 'free',
+    'replicate': 'replicate',
+  }
+  const provider = providerMap[rawProvider] || 'photoroom'
 
   if (!file) {
     return new Response(JSON.stringify({ error: '请上传图片' }), {
@@ -35,7 +45,7 @@ export async function POST(req: NextRequest) {
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     start(controller) {
-      const proc = spawn('python3', [SCRIPT, filepath, '-m', mode, '-p', provider], {
+      const proc = spawn('python3', [SCRIPT, filepath, '-m', mode, '-p', provider, '-c', String(count)], {
         cwd: process.env.WORKSPACE || '/root/.openclaw/workspace',
       })
 
@@ -71,11 +81,21 @@ export async function POST(req: NextRequest) {
         // 收集所有输出文件
         const analysisFile = path.join(outputDir, `${taskId}_analysis.json`)
         const mattingFile = path.join(outputDir, `${taskId}_matting.png`)
-        const finalFile = path.join(outputDir, `${taskId}_final.png`)
-        const files: Record<string, string> = {}
-        if (fs.existsSync(analysisFile)) files.analysis = analysisFile
-        if (fs.existsSync(mattingFile)) files.matting = mattingFile
-        if (fs.existsSync(finalFile)) files.final = finalFile
+        const files: Record<string, any> = {}
+        const finalImages: string[] = []
+        if (fs.existsSync(analysisFile)) files['analysis'] = analysisFile
+        if (fs.existsSync(mattingFile)) files['matting'] = mattingFile
+        // 收集所有 final 图片（支持多张）
+        for (let i = 1; i <= count; i++) {
+          const f = path.join(outputDir, `${taskId}_final_${i}.png`)
+          if (fs.existsSync(f)) finalImages.push(f)
+        }
+        // 兼容旧版单图命名
+        if (finalImages.length === 0) {
+          const singleFinal = path.join(outputDir, `${taskId}_final.png`)
+          if (fs.existsSync(singleFinal)) finalImages.push(singleFinal)
+        }
+        files['finals'] = finalImages
 
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({
           type: 'done',
